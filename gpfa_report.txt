@@ -1,0 +1,22 @@
+============================================================
+CUSTOM GPFA ANALYSIS REPORT
+============================================================
+
+DATASET INFORMATION:
+Number of stocks: 100
+Number of timepoints: 3900
+Time range: 2024-07-01 09:30:00 to 2024-07-10 15:59:00
+
+MODEL PARAMETERS:
+Number of latent factors: 3
+Number of PCA components: 10
+PCA explained variance: 0.128
+
+RECONSTRUCTION QUALITY:
+Mean Squared Error: 0.991587
+Root Mean Squared Error: 0.995785
+
+FACTOR ANALYSIS:
+Factor 1: Variance = 0.0020
+Factor 2: Variance = 0.1713
+Factor 3: Variance = 0.0000

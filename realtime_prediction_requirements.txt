@@ -1,0 +1,54 @@
+# Real-time GPFA Stock Price Prediction System Requirements
+# Core ML and Data Science
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
+# Financial Data and Analysis
+yfinance>=0.2.18
+ta>=0.10.2
+alpha-vantage>=2.3.1
+quandl>=3.7.0
+
+# Real-time Processing
+websocket-client>=1.6.0
+requests>=2.31.0
+schedule>=1.2.0
+
+# Advanced ML Models
+xgboost>=1.7.0
+lightgbm>=4.0.0
+catboost>=1.2.0
+tensorflow>=2.13.0
+torch>=2.0.0
+
+# Time Series Analysis
+statsmodels>=0.14.0
+arch>=6.2.0
+pykalman>=0.9.5
+
+# Uncertainty Quantification
+scipy>=1.11.0
+emcee>=3.1.4
+
+# Database and Storage
+sqlalchemy>=2.0.0
+redis>=4.6.0
+influxdb-client>=1.36.0
+
+# API and Web Framework
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0.0
+
+# Monitoring and Logging
+prometheus-client>=0.17.0
+structlog>=23.1.0
+
+# Development and Testing
+pytest>=7.4.0
+black>=23.7.0
+flake8>=6.0.0 
