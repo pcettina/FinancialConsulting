@@ -92,6 +92,12 @@ class GPFADashboard:
             st.session_state.model_metrics = {}
         if 'last_training_time' not in st.session_state:
             st.session_state.last_training_time = None
+        if 'is_live' not in st.session_state:
+            st.session_state.is_live = False
+        if 'last_update' not in st.session_state:
+            st.session_state.last_update = datetime.now()
+        if 'accuracy_data' not in st.session_state:
+            st.session_state.accuracy_data = {}
     
     def _generate_sample_data(self) -> Dict[str, pd.DataFrame]:
         """Generate realistic sample data for demonstration"""
