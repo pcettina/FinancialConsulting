@@ -77,21 +77,21 @@ class GPFADashboard:
     
     def __init__(self):
         """Initialize the dashboard"""
-        self.symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN']
-        self.visualizer = RealTimeVisualizer(self.symbols)
-        self.rt_visualizer = RTVisualizer(self.symbols)
+        self.symbols = ['AAPL', 'MSFT', 'GOOGL', 'PLTR', 'TSLA', 'LMT', 'AMZN', 'NVDA', 'JPM']
+        self.predictor = None
+        self.visualizer = None
         
         # Initialize session state
         if 'data' not in st.session_state:
-            st.session_state.data = self._generate_sample_data()
+            st.session_state.data = None
         if 'predictions' not in st.session_state:
             st.session_state.predictions = {}
-        if 'accuracy_data' not in st.session_state:
-            st.session_state.accuracy_data = {}
-        if 'is_live' not in st.session_state:
-            st.session_state.is_live = False
-        if 'last_update' not in st.session_state:
-            st.session_state.last_update = datetime.now()
+        if 'training_status' not in st.session_state:
+            st.session_state.training_status = 'Not Trained'
+        if 'model_metrics' not in st.session_state:
+            st.session_state.model_metrics = {}
+        if 'last_training_time' not in st.session_state:
+            st.session_state.last_training_time = None
     
     def _generate_sample_data(self) -> Dict[str, pd.DataFrame]:
         """Generate realistic sample data for demonstration"""
@@ -882,6 +882,395 @@ class GPFADashboard:
         st.success("Report export functionality would be implemented here.")
         # This would generate a comprehensive PDF or Excel report
     
+    def render_training_section(self):
+        """Render the training controls and status section"""
+        st.header("🤖 Model Training & Management")
+        
+        # Training Controls
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        
+        with col1:
+            if st.button("🚀 Train Models on Cached Data", type="primary", use_container_width=True):
+                self._train_models_on_cached_data()
+        
+        with col2:
+            if st.button("🔄 Retrain Failed Models", use_container_width=True):
+                self._retrain_failed_models()
+        
+        with col3:
+            if st.button("📊 Refresh Training Status", use_container_width=True):
+                self._refresh_training_status()
+        
+        with col4:
+            if st.button("🧪 Test Live Predictions", use_container_width=True):
+                self._test_live_predictions()
+        
+        # Training Status Display
+        st.subheader("Training Status")
+        
+        # Status indicator
+        status_color = {
+            'Not Trained': '🔴',
+            'Training...': '🟡', 
+            'Trained': '🟢',
+            'Partially Trained': '🟠',
+            'Training Failed': '🔴'
+        }
+        
+        status_emoji = status_color.get(st.session_state.training_status, '⚪')
+        st.metric(
+            label="Model Status",
+            value=f"{status_emoji} {st.session_state.training_status}",
+            delta=None
+        )
+        
+        # Last training time
+        if st.session_state.last_training_time:
+            st.info(f"Last trained: {st.session_state.last_training_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Training Metrics
+        if st.session_state.model_metrics:
+            st.subheader("Training Metrics")
+            
+            # Create metrics display
+            metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+            
+            with metrics_col1:
+                if 'gpfa_explained_variance' in st.session_state.model_metrics:
+                    st.metric(
+                        label="GPFA Explained Variance",
+                        value=f"{st.session_state.model_metrics['gpfa_explained_variance']:.1%}"
+                    )
+            
+            with metrics_col2:
+                if 'avg_ensemble_r2' in st.session_state.model_metrics:
+                    st.metric(
+                        label="Avg Ensemble R²",
+                        value=f"{st.session_state.model_metrics['avg_ensemble_r2']:.3f}"
+                    )
+            
+            with metrics_col3:
+                if 'models_trained' in st.session_state.model_metrics:
+                    st.metric(
+                        label="Models Trained",
+                        value=f"{st.session_state.model_metrics['models_trained']}/15"
+                    )
+            
+            # Detailed metrics table
+            if 'horizon_metrics' in st.session_state.model_metrics:
+                st.subheader("Horizon-Specific Metrics")
+                horizon_df = pd.DataFrame(st.session_state.model_metrics['horizon_metrics']).T
+                st.dataframe(horizon_df, use_container_width=True)
+
+    def _train_models_on_cached_data(self):
+        """Train all models using cached historical data"""
+        try:
+            st.session_state.training_status = 'Training...'
+            
+            # Create progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            status_text.text("Initializing GPFA predictor...")
+            progress_bar.progress(10)
+            
+            # Initialize predictor
+            self.predictor = RealTimeGPFAPredictor(self.symbols)
+            
+            status_text.text("Loading cached historical data...")
+            progress_bar.progress(20)
+            
+            # Check if cached data exists
+            import os
+            cache_dir = 'real_data_cache'
+            if not os.path.exists(cache_dir):
+                st.error("❌ No cached data found. Please run the data cache builder first.")
+                st.session_state.training_status = 'Training Failed'
+                return
+            
+            status_text.text("Initializing system with historical data...")
+            progress_bar.progress(40)
+            
+            # Initialize system (this will train the models)
+            self.predictor.initialize_system()
+            
+            status_text.text("Training GPFA model...")
+            progress_bar.progress(60)
+            
+            # Check if GPFA model was trained
+            if hasattr(self.predictor.gpfa_model, 'latent_trajectories') and self.predictor.gpfa_model.latent_trajectories is not None:
+                gpfa_trained = True
+            else:
+                gpfa_trained = False
+            
+            status_text.text("Training ensemble models...")
+            progress_bar.progress(80)
+            
+            # Check ensemble training status
+            ensemble_trained = False
+            if hasattr(self.predictor, 'ensemble_historical_data') and self.predictor.ensemble_historical_data is not None:
+                # Check if models are fitted
+                fitted_models = 0
+                total_models = 0
+                for horizon in self.predictor.prediction_ensemble.horizons:
+                    for model_name, model in self.predictor.prediction_ensemble.models[horizon].items():
+                        total_models += 1
+                        if self.predictor.prediction_ensemble._is_model_fitted(model, model_name):
+                            fitted_models += 1
+                
+                ensemble_trained = fitted_models > 0
+            
+            status_text.text("Finalizing training...")
+            progress_bar.progress(90)
+            
+            # Update training status
+            if gpfa_trained and ensemble_trained:
+                st.session_state.training_status = 'Trained'
+            elif gpfa_trained or ensemble_trained:
+                st.session_state.training_status = 'Partially Trained'
+            else:
+                st.session_state.training_status = 'Training Failed'
+            
+            # Store training metrics
+            self._store_training_metrics()
+            
+            progress_bar.progress(100)
+            status_text.text("Training completed!")
+            
+            st.session_state.last_training_time = datetime.now()
+            
+            # Show success message
+            if st.session_state.training_status == 'Trained':
+                st.success("✅ All models trained successfully!")
+            elif st.session_state.training_status == 'Partially Trained':
+                st.warning("⚠️ Some models trained successfully, but not all.")
+            else:
+                st.error("❌ Training failed. Check the logs for details.")
+            
+            # Clear progress indicators
+            time.sleep(2)
+            progress_bar.empty()
+            status_text.empty()
+            
+        except Exception as e:
+            st.error(f"❌ Training failed: {str(e)}")
+            st.session_state.training_status = 'Training Failed'
+            st.exception(e)
+
+    def _retrain_failed_models(self):
+        """Retrain only the failed models"""
+        try:
+            if not self.predictor:
+                st.warning("⚠️ No predictor initialized. Please train models first.")
+                return
+            
+            st.info("🔄 Retraining failed models...")
+            
+            # Retrain failed models
+            if hasattr(self.predictor, 'ensemble_historical_data') and self.predictor.ensemble_historical_data is not None:
+                self.predictor.prediction_ensemble.retrain_failed_models(self.predictor.ensemble_historical_data)
+                
+                # Update training status
+                self._refresh_training_status()
+                st.success("✅ Failed models retrained successfully!")
+            else:
+                st.error("❌ No historical data available for retraining.")
+                
+        except Exception as e:
+            st.error(f"❌ Retraining failed: {str(e)}")
+            st.exception(e)
+
+    def _refresh_training_status(self):
+        """Refresh the training status and metrics"""
+        try:
+            if not self.predictor:
+                st.session_state.training_status = 'Not Trained'
+                return
+            
+            # Check GPFA model status
+            gpfa_trained = False
+            if hasattr(self.predictor.gpfa_model, 'latent_trajectories') and self.predictor.gpfa_model.latent_trajectories is not None:
+                gpfa_trained = True
+            
+            # Check ensemble model status
+            fitted_models = 0
+            total_models = 0
+            horizon_metrics = {}
+            
+            for horizon in self.predictor.prediction_ensemble.horizons:
+                horizon_fitted = 0
+                horizon_total = 0
+                for model_name, model in self.predictor.prediction_ensemble.models[horizon].items():
+                    total_models += 1
+                    horizon_total += 1
+                    if self.predictor.prediction_ensemble._is_model_fitted(model, model_name):
+                        fitted_models += 1
+                        horizon_fitted += 1
+                
+                horizon_metrics[horizon] = {
+                    'fitted': horizon_fitted,
+                    'total': horizon_total,
+                    'status': 'Trained' if horizon_fitted == horizon_total else 'Partial' if horizon_fitted > 0 else 'Failed'
+                }
+            
+            ensemble_trained = fitted_models > 0
+            
+            # Update status
+            if gpfa_trained and fitted_models == total_models:
+                st.session_state.training_status = 'Trained'
+            elif gpfa_trained or ensemble_trained:
+                st.session_state.training_status = 'Partially Trained'
+            else:
+                st.session_state.training_status = 'Not Trained'
+            
+            # Store metrics
+            st.session_state.model_metrics = {
+                'models_trained': fitted_models,
+                'total_models': total_models,
+                'horizon_metrics': horizon_metrics,
+                'gpfa_trained': gpfa_trained,
+                'ensemble_trained': ensemble_trained
+            }
+            
+            # Add GPFA metrics if available
+            if gpfa_trained and hasattr(self.predictor.gpfa_model, 'explained_variance_ratio'):
+                st.session_state.model_metrics['gpfa_explained_variance'] = np.sum(self.predictor.gpfa_model.explained_variance_ratio)
+            
+            st.success("✅ Training status refreshed!")
+            
+        except Exception as e:
+            st.error(f"❌ Failed to refresh training status: {str(e)}")
+
+    def _store_training_metrics(self):
+        """Store comprehensive training metrics"""
+        try:
+            metrics = {}
+            
+            # GPFA metrics
+            if hasattr(self.predictor.gpfa_model, 'explained_variance_ratio'):
+                metrics['gpfa_explained_variance'] = np.sum(self.predictor.gpfa_model.explained_variance_ratio)
+            
+            # Ensemble metrics
+            fitted_models = 0
+            total_models = 0
+            horizon_metrics = {}
+            
+            for horizon in self.predictor.prediction_ensemble.horizons:
+                horizon_fitted = 0
+                horizon_total = 0
+                for model_name, model in self.predictor.prediction_ensemble.models[horizon].items():
+                    total_models += 1
+                    horizon_total += 1
+                    if self.predictor.prediction_ensemble._is_model_fitted(model, model_name):
+                        fitted_models += 1
+                        horizon_fitted += 1
+                
+                horizon_metrics[horizon] = {
+                    'fitted': horizon_fitted,
+                    'total': horizon_total,
+                    'status': 'Trained' if horizon_fitted == horizon_total else 'Partial' if horizon_fitted > 0 else 'Failed'
+                }
+            
+            metrics.update({
+                'models_trained': fitted_models,
+                'total_models': total_models,
+                'horizon_metrics': horizon_metrics,
+                'avg_ensemble_r2': 0.0  # Placeholder - would need to calculate from training
+            })
+            
+            st.session_state.model_metrics = metrics
+            
+        except Exception as e:
+            st.error(f"Failed to store training metrics: {e}")
+
+    def _test_live_predictions(self):
+        """Test the trained models with live market data"""
+        try:
+            if not self.predictor:
+                st.warning("⚠️ No predictor initialized. Please train models first.")
+                return
+            
+            if st.session_state.training_status not in ['Trained', 'Partially Trained']:
+                st.warning("⚠️ Models not fully trained. Please complete training first.")
+                return
+            
+            st.info("🧪 Testing live predictions...")
+            
+            # Create progress indicator
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            status_text.text("Fetching live market data...")
+            progress_bar.progress(25)
+            
+            # Fetch live data
+            try:
+                live_data = self.predictor.data_feed.fetch_real_time_data()
+                if not live_data:
+                    st.error("❌ Failed to fetch live market data.")
+                    return
+            except Exception as e:
+                st.error(f"❌ Error fetching live data: {e}")
+                return
+            
+            status_text.text("Running prediction cycle...")
+            progress_bar.progress(50)
+            
+            # Run prediction cycle
+            try:
+                self.predictor.run_prediction_cycle()
+            except Exception as e:
+                st.error(f"❌ Error running prediction cycle: {e}")
+                return
+            
+            status_text.text("Processing results...")
+            progress_bar.progress(75)
+            
+            # Display results
+            if self.predictor.predictions_history:
+                latest_prediction = self.predictor.predictions_history[-1]
+                
+                status_text.text("Displaying results...")
+                progress_bar.progress(100)
+                
+                # Show prediction results
+                st.subheader("🎯 Live Prediction Results")
+                
+                # Display ensemble predictions
+                if 'ensemble_predictions' in latest_prediction:
+                    ensemble_preds = latest_prediction['ensemble_predictions']
+                    if ensemble_preds:
+                        st.write("**Ensemble Predictions:**")
+                        for horizon, preds in ensemble_preds.items():
+                            if preds:
+                                st.write(f"- {horizon}: {preds}")
+                
+                # Display uncertainty predictions
+                if 'predictions_with_uncertainty' in latest_prediction:
+                    uncertainty_preds = latest_prediction['predictions_with_uncertainty']
+                    if uncertainty_preds:
+                        st.write("**Predictions with Uncertainty:**")
+                        for horizon, preds in uncertainty_preds.items():
+                            if preds:
+                                st.write(f"- {horizon}: {preds}")
+                
+                # Display timestamp
+                timestamp = latest_prediction.get('timestamp', datetime.now())
+                st.info(f"Predictions generated at: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                st.success("✅ Live prediction test completed successfully!")
+            else:
+                st.warning("⚠️ No predictions generated. Check model status.")
+            
+            # Clear progress indicators
+            time.sleep(2)
+            progress_bar.empty()
+            status_text.empty()
+            
+        except Exception as e:
+            st.error(f"❌ Live prediction test failed: {str(e)}")
+            st.exception(e)
+
     def run(self):
         """Main dashboard run method"""
         # Render header
@@ -895,6 +1284,9 @@ class GPFADashboard:
         
         # Render context panel
         self.render_context_panel(selected_symbols)
+        
+        # Render training section
+        self.render_training_section()
         
         # Render main content based on chart type
         if chart_type == "Real-time Overview":
