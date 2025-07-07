@@ -213,344 +213,452 @@ class GPFADashboard:
             """, unsafe_allow_html=True)
     
     def render_sidebar(self):
-        """Render the sidebar controls"""
-        st.sidebar.header("🎛️ Dashboard Controls")
+        """Render sidebar controls"""
+        st.sidebar.header("🎛️ Controls")
+        
+        # Data loading section
+        st.sidebar.subheader("📊 Data Management")
+        
+        if st.sidebar.button("🔄 Load Real Market Data", type="primary", use_container_width=True):
+            self._load_real_market_data()
+        
+        if st.sidebar.button("📈 Load Sample Data", use_container_width=True):
+            self._load_sample_data()
+        
+        # Data status
+        if st.session_state.data:
+            st.sidebar.success(f"✅ Data loaded: {len(st.session_state.data)} symbols")
+        else:
+            st.sidebar.warning("⚠️ No data loaded")
+        
+        st.sidebar.divider()
         
         # Symbol selection
+        st.sidebar.subheader("📋 Symbol Selection")
         selected_symbols = st.sidebar.multiselect(
-            "Select Symbols",
+            "Select symbols to analyze:",
             self.symbols,
-            default=self.symbols[:3]
+            default=self.symbols[:5]
         )
         
         # Chart type selection
+        st.sidebar.subheader("📊 Chart Type")
         chart_type = st.sidebar.selectbox(
-            "Chart Type",
-            ["Real-time Overview", "Price Analysis", "Technical Indicators", 
-             "Prediction Analysis", "Market Overview", "GPFA Factors", "Performance Metrics"]
-        )
-        
-        # Time range selection
-        time_range = st.sidebar.selectbox(
-            "Time Range",
-            ["1 Week", "1 Month", "3 Months", "6 Months", "1 Year", "All Time"]
-        )
-        
-        # Live mode toggle
-        live_mode = st.sidebar.checkbox("Enable Live Updates", value=st.session_state.is_live)
-        if live_mode != st.session_state.is_live:
-            st.session_state.is_live = live_mode
-            st.rerun()
-        
-        # Update frequency
-        if st.session_state.is_live:
-            update_freq = st.sidebar.slider("Update Frequency (seconds)", 5, 60, 30)
-        
-        # Sidebar controls for update interval
-        st.sidebar.header("Update Controls")
-        auto_update = st.sidebar.checkbox("Enable Auto Update", value=False)
-        update_interval = st.sidebar.slider("Update Interval (seconds)", 10, 300, 60)
-        period = st.sidebar.selectbox("Data Period", ["1d", "5d", "1mo", "3mo", "6mo", "1y"], index=2)
-        interval = st.sidebar.selectbox("Data Interval", ["1m", "2m", "5m", "15m", "30m", "60m", "1d"], index=0)
-        if st.sidebar.button("Reload Real Data") or 'data' not in st.session_state:
-            st.session_state.data = self._load_real_data(self.symbols, period=period, interval=interval)
-            st.session_state.predictions = self._generate_predictions(st.session_state.data)
-            st.session_state.accuracy_data = self._generate_accuracy_data(st.session_state.data, st.session_state.predictions)
-            st.session_state.last_update = datetime.now()
-            st.rerun()
-        if auto_update:
-            if 'last_auto_update' not in st.session_state or (datetime.now() - st.session_state.last_update).total_seconds() > update_interval:
-                st.session_state.data = self._load_real_data(self.symbols, period=period, interval=interval)
-                st.session_state.predictions = self._generate_predictions(st.session_state.data)
-                st.session_state.accuracy_data = self._generate_accuracy_data(st.session_state.data, st.session_state.predictions)
-                st.session_state.last_update = datetime.now()
-                st.rerun()
-        
-        # Action buttons
-        st.sidebar.header("Actions")
-        if st.sidebar.button("📊 Export Report"):
-            self._export_report()
-        
-        return selected_symbols, chart_type, time_range
-    
-    def render_metrics(self, selected_symbols):
-        """Render key metrics cards"""
-        st.subheader("📊 Key Metrics")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            total_symbols = len(selected_symbols)
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>Active Symbols</h3>
-                <h2>{total_symbols}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            total_data_points = sum(
-                len(st.session_state.data[symbol]) 
-                for symbol in selected_symbols 
-                if symbol in st.session_state.data
-            )
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>Data Points</h3>
-                <h2>{total_data_points:,}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            predictions_count = len(st.session_state.predictions)
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>Predictions</h3>
-                <h2>{predictions_count}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            if st.session_state.accuracy_data:
-                avg_accuracy = np.mean([
-                    st.session_state.accuracy_data[symbol].get('accuracy', 0)
-                    for symbol in selected_symbols
-                    if symbol in st.session_state.accuracy_data
-                ])
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>Avg Accuracy</h3>
-                    <h2>{avg_accuracy:.1f}%</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>Avg Accuracy</h3>
-                    <h2>N/A</h2>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    def render_real_time_overview(self, selected_symbols):
-        """Render real-time overview dashboard"""
-        st.subheader("📈 Real-time Market Overview")
-        
-        # Create multi-panel dashboard
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=(
-                'Price Movement',
-                'Volume Analysis', 
-                'Technical Indicators',
-                'Prediction Horizon'
-            ),
-            specs=[
-                [{"type": "scatter"}, {"type": "bar"}],
-                [{"type": "scatter"}, {"type": "scatter"}]
+            "Choose chart type:",
+            [
+                "Real-time Overview",
+                "Price Analysis", 
+                "Technical Indicators",
+                "Prediction Analysis",
+                "Market Overview",
+                "GPFA Factors",
+                "Performance Metrics"
             ]
         )
         
-        # Price movement
-        for symbol in selected_symbols:
-            if symbol in st.session_state.data:
-                df = st.session_state.data[symbol]
-                fig.add_trace(
-                    go.Scatter(
-                        x=df.index,
-                        y=df['Close'],
-                        mode='lines',
-                        name=f'{symbol} Price',
-                        line=dict(width=2)
-                    ),
-                    row=1, col=1
-                )
-        
-        # Volume analysis
-        for symbol in selected_symbols:
-            if symbol in st.session_state.data:
-                df = st.session_state.data[symbol]
-                fig.add_trace(
-                    go.Bar(
-                        x=df.index,
-                        y=df['Volume'],
-                        name=f'{symbol} Volume',
-                        opacity=0.7
-                    ),
-                    row=1, col=2
-                )
-        
-        # Technical indicators (RSI)
-        for symbol in selected_symbols:
-            if symbol in st.session_state.data:
-                df = st.session_state.data[symbol]
-                if 'RSI' in df.columns:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=df.index,
-                            y=df['RSI'],
-                            mode='lines',
-                            name=f'{symbol} RSI',
-                            line=dict(width=2)
-                        ),
-                        row=2, col=1
-                    )
-        
-        # Prediction horizon
-        if st.session_state.predictions:
-            for symbol in selected_symbols:
-                if symbol in st.session_state.predictions:
-                    pred_data = st.session_state.predictions[symbol]
-                    fig.add_trace(
-                        go.Scatter(
-                            x=pred_data['prediction_times'],
-                            y=pred_data['predicted_prices'],
-                            mode='lines+markers',
-                            name=f'{symbol} Predicted',
-                            line=dict(dash='dash', width=2)
-                        ),
-                        row=2, col=2
-                    )
-        
-        fig.update_layout(
-            height=800,
-            showlegend=True,
-            title_text="Real-time Market Overview"
+        # Time range selection
+        st.sidebar.subheader("⏰ Time Range")
+        time_range = st.sidebar.selectbox(
+            "Select time range:",
+            ["1D", "1W", "1M", "3M", "6M", "1Y", "All"]
         )
         
-        st.plotly_chart(fig, use_container_width=True)
-    
-    def render_price_analysis(self, selected_symbols):
-        """Render detailed price analysis"""
-        st.subheader("💰 Price Analysis")
+        # Live mode toggle
+        st.sidebar.subheader("🔄 Live Mode")
+        st.session_state.is_live = st.sidebar.checkbox("Enable live updates", value=False)
         
-        # Price comparison chart
+        if st.session_state.is_live:
+            st.sidebar.info("🟢 Live mode enabled - data will update automatically")
+        else:
+            st.sidebar.info("⚪ Live mode disabled - manual refresh required")
+        
+        # Auto-refresh interval
+        if st.session_state.is_live:
+            refresh_interval = st.sidebar.slider(
+                "Refresh interval (seconds):",
+                min_value=5,
+                max_value=300,
+                value=60,
+                step=5
+            )
+        
+        return selected_symbols, chart_type, time_range
+
+    def _load_real_market_data(self):
+        """Load real market data using yfinance"""
+        try:
+            with st.spinner("Loading real market data..."):
+                # Load data for all symbols
+                data = {}
+                for symbol in self.symbols:
+                    try:
+                        ticker = yf.Ticker(symbol)
+                        hist = ticker.history(period="1mo", interval="1h")
+                        if not hist.empty:
+                            data[symbol] = hist
+                            st.success(f"✅ Loaded {symbol}: {len(hist)} data points")
+                        else:
+                            st.warning(f"⚠️ No data for {symbol}")
+                    except Exception as e:
+                        st.error(f"❌ Error loading {symbol}: {e}")
+                
+                if data:
+                    st.session_state.data = data
+                    st.success(f"✅ Successfully loaded data for {len(data)} symbols")
+                else:
+                    st.error("❌ No data could be loaded")
+                    
+        except Exception as e:
+            st.error(f"❌ Error loading market data: {e}")
+
+    def _load_sample_data(self):
+        """Load sample data for testing"""
+        try:
+            with st.spinner("Generating sample data..."):
+                st.session_state.data = self._generate_sample_data()
+                st.success("✅ Sample data loaded successfully")
+        except Exception as e:
+            st.error(f"❌ Error generating sample data: {e}")
+
+    def render_metrics(self, selected_symbols):
+        """Render key metrics for selected symbols"""
+        st.subheader("📊 Key Metrics")
+        
+        # Check if data exists
+        if not st.session_state.data:
+            st.warning("No data available. Please load data first.")
+            return
+        
+        # Calculate metrics
+        try:
+            total_data_points = sum(
+                len(st.session_state.data[symbol])
+                for symbol in selected_symbols
+                if symbol in st.session_state.data
+            )
+            
+            # Calculate average price changes
+            price_changes = []
+            for symbol in selected_symbols:
+                if symbol in st.session_state.data and len(st.session_state.data[symbol]) > 1:
+                    data = st.session_state.data[symbol]
+                    if 'Close' in data.columns:
+                        price_change = ((data['Close'].iloc[-1] / data['Close'].iloc[0]) - 1) * 100
+                        price_changes.append(price_change)
+            
+            avg_price_change = np.mean(price_changes) if price_changes else 0
+            
+            # Display metrics in columns
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    label="Total Data Points",
+                    value=f"{total_data_points:,}",
+                    delta=None
+                )
+            
+            with col2:
+                st.metric(
+                    label="Symbols Tracked",
+                    value=len(selected_symbols),
+                    delta=None
+                )
+            
+            with col3:
+                st.metric(
+                    label="Avg Price Change",
+                    value=f"{avg_price_change:.2f}%",
+                    delta=f"{avg_price_change:.2f}%"
+                )
+            
+            with col4:
+                # Calculate volatility
+                volatilities = []
+                for symbol in selected_symbols:
+                    if symbol in st.session_state.data and 'Close' in st.session_state.data[symbol].columns:
+                        data = st.session_state.data[symbol]
+                        if len(data) > 1:
+                            returns = data['Close'].pct_change().dropna()
+                            volatility = returns.std() * np.sqrt(252) * 100  # Annualized
+                            volatilities.append(volatility)
+                
+                avg_volatility = np.mean(volatilities) if volatilities else 0
+                st.metric(
+                    label="Avg Volatility",
+                    value=f"{avg_volatility:.2f}%",
+                    delta=None
+                )
+                
+        except Exception as e:
+            st.error(f"Error calculating metrics: {e}")
+            st.info("Please ensure data is properly loaded.")
+    
+    def render_real_time_overview(self, selected_symbols):
+        """Render real-time overview dashboard"""
+        st.subheader("📈 Real-time Overview")
+        
+        # Check if data exists
+        if not st.session_state.data:
+            st.warning("No data available. Please load data first.")
+            return
+        
+        # Create real-time price chart
         fig = go.Figure()
         
         for symbol in selected_symbols:
             if symbol in st.session_state.data:
-                df = st.session_state.data[symbol]
-                # Normalize prices for comparison
-                normalized_prices = (df['Close'] / df['Close'].iloc[0]) * 100
-                
-                fig.add_trace(
-                    go.Scatter(
-                        x=df.index,
-                        y=normalized_prices,
-                        mode='lines',
-                        name=f'{symbol} (Normalized)',
-                        line=dict(width=2)
+                data = st.session_state.data[symbol]
+                if 'Close' in data.columns and len(data) > 0:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=data.index,
+                            y=data['Close'],
+                            mode='lines',
+                            name=symbol,
+                            line=dict(width=2)
+                        )
                     )
-                )
         
         fig.update_layout(
-            title="Price Performance Comparison (Normalized to 100)",
-            xaxis_title="Date",
-            yaxis_title="Normalized Price (%)",
+            title="Real-time Price Movement",
+            xaxis_title="Time",
+            yaxis_title="Price ($)",
             height=500
         )
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Price statistics table
-        st.subheader("📋 Price Statistics")
+        # Display current prices table
+        st.subheader("Current Prices")
+        price_data = []
         
-        stats_data = []
         for symbol in selected_symbols:
             if symbol in st.session_state.data:
-                df = st.session_state.data[symbol]
-                stats_data.append({
-                    'Symbol': symbol,
-                    'Current Price': f"${df['Close'].iloc[-1]:.2f}",
-                    'Change (%)': f"{((df['Close'].iloc[-1] / df['Close'].iloc[-2]) - 1) * 100:.2f}%",
-                    'High': f"${df['High'].max():.2f}",
-                    'Low': f"${df['Low'].min():.2f}",
-                    'Volume': f"{df['Volume'].iloc[-1]:,}"
-                })
+                data = st.session_state.data[symbol]
+                if 'Close' in data.columns and len(data) > 0:
+                    current_price = data['Close'].iloc[-1]
+                    if len(data) > 1:
+                        prev_price = data['Close'].iloc[-2]
+                        change = current_price - prev_price
+                        change_pct = (change / prev_price) * 100
+                    else:
+                        change = 0
+                        change_pct = 0
+                    
+                    price_data.append({
+                        'Symbol': symbol,
+                        'Current Price': f"${current_price:.2f}",
+                        'Change': f"${change:.2f}",
+                        'Change %': f"{change_pct:.2f}%"
+                    })
         
-        if stats_data:
-            stats_df = pd.DataFrame(stats_data)
-            st.dataframe(stats_df, use_container_width=True)
+        if price_data:
+            price_df = pd.DataFrame(price_data)
+            st.dataframe(price_df, use_container_width=True)
+        else:
+            st.info("No price data available for selected symbols.")
     
-    def render_technical_indicators(self, selected_symbols):
-        """Render technical indicators analysis"""
-        st.subheader("📊 Technical Indicators")
+    def render_price_analysis(self, selected_symbols):
+        """Render price analysis dashboard"""
+        st.subheader("💰 Price Analysis")
         
-        # Create technical indicators dashboard
+        # Check if data exists
+        if not st.session_state.data:
+            st.warning("No data available. Please load data first.")
+            return
+        
+        # Create price analysis charts
         fig = make_subplots(
-            rows=len(selected_symbols), cols=3,
-            subplot_titles=[
-                f'{symbol} - Price & SMA' for symbol in selected_symbols
-            ] + [
-                f'{symbol} - RSI' for symbol in selected_symbols
-            ] + [
-                f'{symbol} - MACD' for symbol in selected_symbols
-            ],
-            specs=[[{"secondary_y": True}, {}, {}] for _ in selected_symbols]
+            rows=2, cols=2,
+            subplot_titles=(
+                'Price Trends',
+                'Volume Analysis',
+                'Price Distribution',
+                'Correlation Matrix'
+            )
         )
         
-        for i, symbol in enumerate(selected_symbols):
+        # Price trends
+        for symbol in selected_symbols:
             if symbol in st.session_state.data:
-                df = st.session_state.data[symbol]
-                
-                # Price and SMA
-                fig.add_trace(
-                    go.Scatter(
-                        x=df.index,
-                        y=df['Close'],
-                        mode='lines',
-                        name=f'{symbol} Price',
-                        line=dict(color='blue')
-                    ),
-                    row=i+1, col=1, secondary_y=False
-                )
-                
-                if 'SMA_20' in df.columns:
+                data = st.session_state.data[symbol]
+                if 'Close' in data.columns and len(data) > 0:
                     fig.add_trace(
                         go.Scatter(
-                            x=df.index,
-                            y=df['SMA_20'],
+                            x=data.index,
+                            y=data['Close'],
                             mode='lines',
-                            name=f'{symbol} SMA 20',
-                            line=dict(color='orange')
+                            name=symbol
                         ),
-                        row=i+1, col=1, secondary_y=False
+                        row=1, col=1
                     )
-                
-                # RSI
-                if 'RSI' in df.columns:
+        
+        # Volume analysis (if available)
+        for symbol in selected_symbols:
+            if symbol in st.session_state.data:
+                data = st.session_state.data[symbol]
+                if 'Volume' in data.columns and len(data) > 0:
+                    fig.add_trace(
+                        go.Bar(
+                            x=data.index,
+                            y=data['Volume'],
+                            name=f"{symbol} Volume"
+                        ),
+                        row=1, col=2
+                    )
+        
+        # Price distribution
+        for symbol in selected_symbols:
+            if symbol in st.session_state.data:
+                data = st.session_state.data[symbol]
+                if 'Close' in data.columns and len(data) > 0:
+                    fig.add_trace(
+                        go.Histogram(
+                            x=data['Close'],
+                            name=symbol,
+                            opacity=0.7
+                        ),
+                        row=2, col=1
+                    )
+        
+        # Correlation matrix
+        price_data = {}
+        for symbol in selected_symbols:
+            if symbol in st.session_state.data:
+                data = st.session_state.data[symbol]
+                if 'Close' in data.columns and len(data) > 0:
+                    price_data[symbol] = data['Close']
+        
+        if len(price_data) > 1:
+            price_df = pd.DataFrame(price_data)
+            correlation_matrix = price_df.corr()
+            
+            fig.add_trace(
+                go.Heatmap(
+                    z=correlation_matrix.values,
+                    x=correlation_matrix.columns,
+                    y=correlation_matrix.columns,
+                    colorscale='RdBu',
+                    name='Correlation'
+                ),
+                row=2, col=2
+            )
+        
+        fig.update_layout(height=800, title_text="Price Analysis Dashboard")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    def render_technical_indicators(self, selected_symbols):
+        """Render technical indicators dashboard"""
+        st.subheader("📊 Technical Indicators")
+        
+        # Check if data exists
+        if not st.session_state.data:
+            st.warning("No data available. Please load data first.")
+            return
+        
+        # Create technical indicators chart
+        fig = make_subplots(
+            rows=3, cols=1,
+            subplot_titles=('Price & Moving Averages', 'RSI', 'MACD'),
+            shared_xaxes=True,
+            vertical_spacing=0.1
+        )
+        
+        for symbol in selected_symbols:
+            if symbol in st.session_state.data:
+                data = st.session_state.data[symbol]
+                if 'Close' in data.columns and len(data) > 20:
+                    # Price and moving averages
                     fig.add_trace(
                         go.Scatter(
-                            x=df.index,
-                            y=df['RSI'],
+                            x=data.index,
+                            y=data['Close'],
+                            mode='lines',
+                            name=f'{symbol} Price',
+                            line=dict(width=2)
+                        ),
+                        row=1, col=1
+                    )
+                    
+                    # Calculate moving averages
+                    ma20 = data['Close'].rolling(window=20).mean()
+                    ma50 = data['Close'].rolling(window=50).mean()
+                    
+                    fig.add_trace(
+                        go.Scatter(
+                            x=data.index,
+                            y=ma20,
+                            mode='lines',
+                            name=f'{symbol} MA20',
+                            line=dict(dash='dash')
+                        ),
+                        row=1, col=1
+                    )
+                    
+                    fig.add_trace(
+                        go.Scatter(
+                            x=data.index,
+                            y=ma50,
+                            mode='lines',
+                            name=f'{symbol} MA50',
+                            line=dict(dash='dot')
+                        ),
+                        row=1, col=1
+                    )
+                    
+                    # RSI
+                    rsi = self._calculate_rsi(data['Close'])
+                    fig.add_trace(
+                        go.Scatter(
+                            x=data.index,
+                            y=rsi,
                             mode='lines',
                             name=f'{symbol} RSI',
                             line=dict(color='purple')
                         ),
-                        row=i+1, col=2
+                        row=2, col=1
                     )
                     
                     # Add RSI overbought/oversold lines
-                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=i+1, col=2)
-                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=i+1, col=2)
-                
-                # MACD
-                if 'MACD' in df.columns:
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+                    
+                    # MACD
+                    macd_line, signal_line, macd_histogram = self._calculate_macd(data['Close'])
                     fig.add_trace(
                         go.Scatter(
-                            x=df.index,
-                            y=df['MACD'],
+                            x=data.index,
+                            y=macd_line,
                             mode='lines',
                             name=f'{symbol} MACD',
-                            line=dict(color='red')
+                            line=dict(color='blue')
                         ),
-                        row=i+1, col=3
+                        row=3, col=1
+                    )
+                    
+                    fig.add_trace(
+                        go.Scatter(
+                            x=data.index,
+                            y=signal_line,
+                            mode='lines',
+                            name=f'{symbol} Signal',
+                            line=dict(color='orange')
+                        ),
+                        row=3, col=1
+                    )
+                    
+                    fig.add_trace(
+                        go.Bar(
+                            x=data.index,
+                            y=macd_histogram,
+                            name=f'{symbol} Histogram',
+                            opacity=0.5
+                        ),
+                        row=3, col=1
                     )
         
-        fig.update_layout(
-            height=300 * len(selected_symbols),
-            title_text="Technical Indicators Analysis"
-        )
-        
+        fig.update_layout(height=900, title_text="Technical Indicators")
         st.plotly_chart(fig, use_container_width=True)
     
     def render_prediction_analysis(self, selected_symbols):
